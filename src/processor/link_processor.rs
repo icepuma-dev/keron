@@ -79,14 +79,14 @@ impl LinkProcessor {
                         outcomes.push(dry_run_or_success!(
                             approve,
                             format!("link: {}", source_path.display()),
-                            format!("to: {}", to_path.display()),
+                            format!("to: {}", to_path.display())
                         ));
                     }
                     Err(err) => {
                         outcomes.push(dry_run_or_failure!(
                             approve,
                             format!("link: {}", source_path.display()),
-                            format!("to '{}' failed: {err}", to_path.display()),
+                            format!("to '{}' failed: {err}", to_path.display())
                         ));
                     }
                 }
