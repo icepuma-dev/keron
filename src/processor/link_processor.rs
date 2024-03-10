@@ -151,7 +151,7 @@ mod tests {
         assert_eq!(to.exists(), true);
         assert_eq!(outcomes.len(), 1);
 
-        if let Outcome::Failure(_, _) = outcomes.get(0).unwrap() {
+        if let Outcome::Failure(_, _) = outcomes.first().unwrap() {
             panic!("the outcome should be successful!");
         }
     }

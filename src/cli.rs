@@ -16,6 +16,8 @@ pub(crate) struct Options {
 pub(crate) enum SubCommand {
     #[command(about = "Apply")]
     Apply(Apply),
+
+    Preflight,
 }
 
 #[derive(Parser, Debug)]
