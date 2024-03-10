@@ -2,7 +2,10 @@ use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 
-use crate::model::{Link, Outcome};
+use crate::{
+    dry_run_or_failure, dry_run_or_success,
+    model::{Link, Outcome},
+};
 
 pub(crate) struct LinkProcessor;
 
@@ -51,18 +54,20 @@ impl LinkProcessor {
         let source_path = recipe_root.join(source);
 
         if !source_path.exists() {
-            outcomes.push(Outcome::Failure(
+            outcomes.push(dry_run_or_failure!(
+                approve,
                 format!("link: {}", source_path.display()),
-                format!("source path '{}' does not exist.", source_path.display()),
+                format!("source path '{}' does not exist.", source_path.display())
             ));
         }
 
         let to_path = self.resolve_path(to);
 
         if to_path.exists() {
-            outcomes.push(Outcome::Failure(
+            outcomes.push(dry_run_or_failure!(
+                approve,
                 format!("link: {}", source_path.display()),
-                format!("to path '{}' already exists", to_path.display()),
+                format!("to path '{}' already exists", to_path.display())
             ));
         }
 
@@ -71,13 +76,15 @@ impl LinkProcessor {
                 #[cfg(windows)]
                 match std::os::windows::fs::symlink_file(&source_path, &to_path) {
                     Ok(_) => {
-                        outcomes.push(Outcome::Success(
+                        outcomes.push(dry_run_or_success!(
+                            approve,
                             format!("link: {}", source_path.display()),
                             format!("to: {}", to_path.display()),
                         ));
                     }
                     Err(err) => {
-                        outcomes.push(Outcome::Failure(
+                        outcomes.push(dry_run_or_failure!(
+                            approve,
                             format!("link: {}", source_path.display()),
                             format!("to '{}' failed: {err}", to_path.display()),
                         ));
@@ -87,15 +94,17 @@ impl LinkProcessor {
                 #[cfg(unix)]
                 match std::os::unix::fs::symlink(&source_path, &to_path) {
                     Ok(_) => {
-                        outcomes.push(Outcome::Success(
+                        outcomes.push(dry_run_or_success!(
+                            approve,
                             format!("link: {}", source_path.display()),
-                            format!("to: {}", to_path.display()),
+                            format!("to: {}", to_path.display())
                         ));
                     }
                     Err(err) => {
-                        outcomes.push(Outcome::Failure(
+                        outcomes.push(dry_run_or_failure!(
+                            approve,
                             format!("link: {}", source_path.display()),
-                            format!("to '{}' failed: {err}", to_path.display()),
+                            format!("to '{}' failed: {err}", to_path.display())
                         ));
                     }
                 }
@@ -118,6 +127,8 @@ mod tests {
 
     use tempfile::NamedTempFile;
 
+    use crate::model::Outcome;
+
     use super::LinkProcessor;
     use pretty_assertions::assert_eq;
 
@@ -135,8 +146,13 @@ mod tests {
         let target_directory = tempfile::tempdir().unwrap();
         let to = target_directory.path().join(".npmrc").to_path_buf();
 
-        link_processor.symlink(true, &recipe_root.into_path(), &source, &to);
+        let outcomes = link_processor.symlink(true, &recipe_root.into_path(), &source, &to);
 
         assert_eq!(to.exists(), true);
+        assert_eq!(outcomes.len(), 1);
+
+        if let Outcome::Failure(_, _) = outcomes.get(0).unwrap() {
+            panic!("the outcome should be successful!");
+        }
     }
 }
