@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::BTreeMap, path::Path};
 
 use crate::{
     model::{Outcomes, Recipe},
@@ -14,16 +14,16 @@ impl Engine {
 
     pub(crate) fn run(
         &self,
-        _approve: bool,
+        approve: bool,
         recipes: &BTreeMap<String, Recipe>,
-        recipe_root: &PathBuf,
+        recipe_root: &Path,
     ) -> anyhow::Result<Outcomes> {
         let mut outcomes = Outcomes::new();
         let link_processor = LinkProcessor::new();
 
         for (name, recipe) in recipes {
             if let Some(link) = &recipe.link {
-                let link_outcomes = link_processor.process(recipe_root, link);
+                let link_outcomes = link_processor.process(approve, recipe_root, link);
                 outcomes.add(name, link_outcomes);
             }
         }

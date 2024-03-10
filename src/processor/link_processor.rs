@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use indexmap::IndexMap;
 
@@ -13,13 +13,14 @@ impl LinkProcessor {
 
     pub(crate) fn process(
         &self,
-        recipe_root: &PathBuf,
+        approve: bool,
+        recipe_root: &Path,
         link: &IndexMap<PathBuf, Link>,
     ) -> Vec<Outcome> {
         let mut outcomes = vec![];
 
         for (source, link) in link {
-            outcomes.extend(self.symlink(recipe_root, source, &link.to));
+            outcomes.extend(self.symlink(approve, recipe_root, source, &link.to));
         }
 
         outcomes
@@ -38,7 +39,13 @@ impl LinkProcessor {
         }
     }
 
-    fn symlink(&self, recipe_root: &PathBuf, source: &PathBuf, to: &PathBuf) -> Vec<Outcome> {
+    fn symlink(
+        &self,
+        approve: bool,
+        recipe_root: &Path,
+        source: &PathBuf,
+        to: &PathBuf,
+    ) -> Vec<Outcome> {
         let mut outcomes = vec![];
 
         let source_path = recipe_root.join(source);
@@ -60,13 +67,75 @@ impl LinkProcessor {
         }
 
         if outcomes.is_empty() {
-            println!(
-                "// TODO: implement symlink from '{}' to '{}'",
-                source_path.display(),
-                to_path.display()
-            );
+            if approve {
+                #[cfg(target_os = "windows")]
+                match std::os::windows::fs::symlink_file(&source_path, &to_path) {
+                    Ok(_) => {
+                        outcomes.push(Outcome::Success(
+                            format!("link: {}", source_path.display()),
+                            format!("to: {}", to_path.display()),
+                        ));
+                    }
+                    Err(err) => {
+                        outcomes.push(Outcome::Failure(
+                            format!("link: {}", source_path.display()),
+                            format!("to '{}' failed: {err}", to_path.display()),
+                        ));
+                    }
+                }
+
+                match std::os::unix::fs::symlink(&source_path, &to_path) {
+                    Ok(_) => {
+                        outcomes.push(Outcome::Success(
+                            format!("link: {}", source_path.display()),
+                            format!("to: {}", to_path.display()),
+                        ));
+                    }
+                    Err(err) => {
+                        outcomes.push(Outcome::Failure(
+                            format!("link: {}", source_path.display()),
+                            format!("to '{}' failed: {err}", to_path.display()),
+                        ));
+                    }
+                }
+            } else {
+                println!(
+                    "dry-run: link '{}' to '{}'",
+                    source_path.display(),
+                    to_path.display()
+                );
+            }
         }
 
         outcomes
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use tempfile::NamedTempFile;
+
+    use super::LinkProcessor;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    fn test_symlink() {
+        let link_processor = LinkProcessor::new();
+
+        let recipe_root = tempfile::tempdir().unwrap();
+
+        let mut npmrc = NamedTempFile::new_in(&recipe_root).unwrap();
+        write!(npmrc, "fkbr").unwrap();
+
+        let source = npmrc.path().to_path_buf();
+
+        let target_directory = tempfile::tempdir().unwrap();
+        let to = target_directory.path().join(".npmrc").to_path_buf();
+
+        link_processor.symlink(true, &recipe_root.into_path(), &source, &to);
+
+        assert_eq!(to.exists(), true);
     }
 }

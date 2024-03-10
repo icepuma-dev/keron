@@ -25,11 +25,11 @@ impl Outcomes {
             .extend(outcomes);
     }
 
-    pub(crate) fn successful(&self, name: &String) -> bool {
-        !self.failed(name)
+    pub(crate) fn _successful(&self, name: &String) -> bool {
+        !self._failed(name)
     }
 
-    pub(crate) fn failed(&self, name: &String) -> bool {
+    pub(crate) fn _failed(&self, name: &String) -> bool {
         if let Some(outcomes) = self.outcomes.get(name) {
             outcomes.iter().any(|outcome| match outcome {
                 Outcome::Failure(_, _) => true,
