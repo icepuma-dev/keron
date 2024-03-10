@@ -1,0 +1,23 @@
+name: Test
+on:
+  push:
+    branches:
+      - "main"
+  pull_request:
+jobs:
+  test:
+    strategy:
+      matrix:
+        os:
+          - ubuntu-22.04
+          - windows-2022
+          - macos-12
+          - macos-14
+    env:
+      CARGO_TERM_COLOR: always
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt -- --check && cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo test
