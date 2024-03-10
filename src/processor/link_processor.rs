@@ -68,7 +68,7 @@ impl LinkProcessor {
 
         if outcomes.is_empty() {
             if approve {
-                #[cfg(target_os = "windows")]
+                #[cfg(windows)]
                 match std::os::windows::fs::symlink_file(&source_path, &to_path) {
                     Ok(_) => {
                         outcomes.push(Outcome::Success(
@@ -84,6 +84,7 @@ impl LinkProcessor {
                     }
                 }
 
+                #[cfg(unix)]
                 match std::os::unix::fs::symlink(&source_path, &to_path) {
                     Ok(_) => {
                         outcomes.push(Outcome::Success(
