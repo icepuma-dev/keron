@@ -6,6 +6,7 @@ link "lel.txt" {
   to = "~/lel.txt"
 }
 
-package "fzf" {
+packages {
+  list    = ["fzf", "git", "tig"]
   manager = ["brew"]
 }

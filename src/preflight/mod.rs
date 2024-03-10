@@ -8,9 +8,9 @@ pub(crate) fn preflight(recipes: &BTreeMap<String, Recipe>) {
     let mut package_managers = HashSet::<PackageManager>::new();
 
     for recipe in recipes.values() {
-        recipe.package.as_ref().iter().for_each(|package| {
-            package.values().for_each(|package| {
-                package
+        recipe.packages.as_ref().iter().for_each(|packages| {
+            packages.iter().for_each(|packages| {
+                packages
                     .manager
                     .as_ref()
                     .unwrap_or(&HashSet::<PackageManager>::new())
