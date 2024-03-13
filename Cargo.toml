@@ -4,15 +4,7 @@ version = "2024.3.13"
 edition = "2021"
 authors = ["Stefan Ruzitschka <stefan@icepuma.dev>"]
 description = "dotfile manager (symlinks, packages)"
-keywords = [
-    "dotfile",
-    "dotfiles",
-    "keron",
-    "dotfile manager",
-    "symlink",
-    "brew",
-    "yay",
-]
+keywords = ["dotfile", "dotfiles", "dotfile manager"]
 repository = "https://github.com/icepuma/keron"
 readme = "README.md"
 license-file = "LICENSE"
