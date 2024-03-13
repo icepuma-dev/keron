@@ -65,13 +65,25 @@ impl LinkProcessor {
                 #[cfg(windows)]
                 match std::os::windows::fs::symlink_file(&source_path, &to_path) {
                     Ok(_) => {
-                        outcomes.push(dry_run_or_success!(approve,));
+                        outcomes.push(dry_run_or_success!(
+                            approve,
+                            format!("{recipe_name}/link/{}", source.display()),
+                            format!(
+                                "successfully linked '{}' to '{}'",
+                                source.display(),
+                                to.display()
+                            )
+                        ));
                     }
                     Err(err) => {
                         outcomes.push(dry_run_or_failure!(
                             approve,
                             format!("{recipe_name}/link/{}", source.display()),
-                            format!("to path '{}' already exists", to_path.display())
+                            format!(
+                                "link from '{}' to '{}' failed: {err}",
+                                source.display(),
+                                to.display()
+                            )
                         ));
                     }
                 }
