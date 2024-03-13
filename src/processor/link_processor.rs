@@ -24,13 +24,13 @@ impl LinkProcessor {
         let mut outcomes = vec![];
 
         for (source, link) in link {
-            outcomes.extend(self.symlink(approve, recipe_name, recipe_root, source, &link.to));
+            outcomes.extend(self.link(approve, recipe_name, recipe_root, source, &link.to));
         }
 
         outcomes
     }
 
-    fn symlink(
+    fn link(
         &self,
         approve: bool,
         recipe_name: &String,
@@ -62,8 +62,7 @@ impl LinkProcessor {
 
         if outcomes.is_empty() {
             if approve {
-                #[cfg(windows)]
-                match std::os::windows::fs::symlink_file(&source_path, &to_path) {
+                match self.symlink(&source_path, &to_path) {
                     Ok(_) => {
                         outcomes.push(dry_run_or_success!(
                             approve,
@@ -71,7 +70,7 @@ impl LinkProcessor {
                             format!(
                                 "successfully linked '{}' to '{}'",
                                 source.display(),
-                                to.display()
+                                to_path.display()
                             )
                         ));
                     }
@@ -82,33 +81,7 @@ impl LinkProcessor {
                             format!(
                                 "link from '{}' to '{}' failed: {err}",
                                 source.display(),
-                                to.display()
-                            )
-                        ));
-                    }
-                }
-
-                #[cfg(unix)]
-                match std::os::unix::fs::symlink(&source_path, &to_path) {
-                    Ok(_) => {
-                        outcomes.push(dry_run_or_success!(
-                            approve,
-                            format!("{recipe_name}/link/{}", source.display()),
-                            format!(
-                                "successfully linked '{}' to '{}'",
-                                source.display(),
-                                to.display()
-                            )
-                        ));
-                    }
-                    Err(err) => {
-                        outcomes.push(dry_run_or_failure!(
-                            approve,
-                            format!("{recipe_name}/link/{}", source.display()),
-                            format!(
-                                "link from '{}' to '{}' failed: {err}",
-                                source.display(),
-                                to.display()
+                                to_path.display()
                             )
                         ));
                     }
@@ -123,6 +96,16 @@ impl LinkProcessor {
         }
 
         outcomes
+    }
+
+    #[cfg(windows)]
+    fn symlink(&self, source_path: &PathBuf, to: &PathBuf) -> anyhow::Result<()> {
+        std::os::windows::fs::symlink_file(source_path, to).map_err(anyhow::Error::from)
+    }
+
+    #[cfg(unix)]
+    fn symlink(&self, source_path: &PathBuf, to: &PathBuf) -> anyhow::Result<()> {
+        std::os::unix::fs::symlink(source_path, to).map_err(anyhow::Error::from)
     }
 }
 
@@ -151,7 +134,7 @@ mod tests {
         let target_directory = tempfile::tempdir().unwrap();
         let to = target_directory.path().join(".npmrc").to_path_buf();
 
-        let outcomes = link_processor.symlink(
+        let outcomes = link_processor.link(
             true,
             &"fkbr".to_string(),
             &recipe_root.into_path(),
