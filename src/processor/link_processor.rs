@@ -17,37 +17,26 @@ impl LinkProcessor {
     pub(crate) fn process(
         &self,
         approve: bool,
+        recipe_name: &String,
         recipe_root: &Path,
         link: &IndexMap<PathBuf, Link>,
     ) -> Vec<Outcome> {
         let mut outcomes = vec![];
 
         for (source, link) in link {
-            outcomes.extend(self.symlink(approve, recipe_root, source, &link.to));
+            outcomes.extend(self.symlink(approve, recipe_name, recipe_root, source, &link.to));
         }
 
         outcomes
     }
 
-    fn resolve_path(&self, path: &PathBuf) -> PathBuf {
-        let path = path.to_owned();
-
-        if path.starts_with("~/") {
-            // FIXME: what to do when this is empty
-            let home_dir = dirs::home_dir().unwrap_or_default();
-
-            home_dir.join(path.display().to_string().replace("~/", ""))
-        } else {
-            path.to_owned()
-        }
-    }
-
     fn symlink(
         &self,
         approve: bool,
+        recipe_name: &String,
         recipe_root: &Path,
         source: &PathBuf,
-        to: &PathBuf,
+        to: &Path,
     ) -> Vec<Outcome> {
         let mut outcomes = vec![];
 
@@ -56,18 +45,18 @@ impl LinkProcessor {
         if !source_path.exists() {
             outcomes.push(dry_run_or_failure!(
                 approve,
-                format!("link: {}", source_path.display()),
-                format!("source path '{}' does not exist.", source_path.display())
+                format!("{recipe_name}/link/{}", source.display()),
+                format!("link {} to {}", source.display(), to.display())
             ));
         }
 
-        let to_path = self.resolve_path(to);
+        let to_path = PathBuf::from(shellexpand::tilde(&to.display().to_string()).to_string());
 
         if to_path.exists() {
             outcomes.push(dry_run_or_failure!(
                 approve,
-                format!("link: {}", source_path.display()),
-                format!("to path '{}' already exists", to_path.display())
+                format!("{recipe_name}/link/{}", source.display()),
+                format!("source '{}' already exists", source.display())
             ));
         }
 
@@ -76,17 +65,13 @@ impl LinkProcessor {
                 #[cfg(windows)]
                 match std::os::windows::fs::symlink_file(&source_path, &to_path) {
                     Ok(_) => {
-                        outcomes.push(dry_run_or_success!(
-                            approve,
-                            format!("link: {}", source_path.display()),
-                            format!("to: {}", to_path.display())
-                        ));
+                        outcomes.push(dry_run_or_success!(approve,));
                     }
                     Err(err) => {
                         outcomes.push(dry_run_or_failure!(
                             approve,
-                            format!("link: {}", source_path.display()),
-                            format!("to '{}' failed: {err}", to_path.display())
+                            format!("{recipe_name}/link/{}", source.display()),
+                            format!("to path '{}' already exists", to_path.display())
                         ));
                     }
                 }
@@ -96,15 +81,23 @@ impl LinkProcessor {
                     Ok(_) => {
                         outcomes.push(dry_run_or_success!(
                             approve,
-                            format!("link: {}", source_path.display()),
-                            format!("to: {}", to_path.display())
+                            format!("{recipe_name}/link/{}", source.display()),
+                            format!(
+                                "successfully linked '{}' to '{}'",
+                                source.display(),
+                                to.display()
+                            )
                         ));
                     }
                     Err(err) => {
                         outcomes.push(dry_run_or_failure!(
                             approve,
-                            format!("link: {}", source_path.display()),
-                            format!("to '{}' failed: {err}", to_path.display())
+                            format!("{recipe_name}/link/{}", source.display()),
+                            format!(
+                                "link from '{}' to '{}' failed: {err}",
+                                source.display(),
+                                to.display()
+                            )
                         ));
                     }
                 }
@@ -146,12 +139,18 @@ mod tests {
         let target_directory = tempfile::tempdir().unwrap();
         let to = target_directory.path().join(".npmrc").to_path_buf();
 
-        let outcomes = link_processor.symlink(true, &recipe_root.into_path(), &source, &to);
+        let outcomes = link_processor.symlink(
+            true,
+            &"fkbr".to_string(),
+            &recipe_root.into_path(),
+            &source,
+            &to,
+        );
 
         assert_eq!(to.exists(), true);
         assert_eq!(outcomes.len(), 1);
 
-        if let Outcome::Failure(_, _) = outcomes.first().unwrap() {
+        if let Outcome::Failure { .. } = outcomes.first().unwrap() {
             panic!("the outcome should be successful!");
         }
     }

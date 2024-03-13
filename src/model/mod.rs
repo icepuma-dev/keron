@@ -1,11 +1,9 @@
 pub(crate) mod link;
 pub(crate) mod outcome;
-pub(crate) mod package;
 pub(crate) mod recipe;
 
 pub(crate) use link::*;
 pub(crate) use outcome::*;
-pub(crate) use package::*;
 pub(crate) use recipe::*;
 
 #[cfg(test)]
@@ -19,7 +17,7 @@ mod tests {
 
     use crate::model::Link;
 
-    use super::{Packages, Recipe};
+    use super::Recipe;
 
     fn assert_serialize<T: Serialize>(value: T, expected: &str) {
         assert_eq!(hcl::to_string(&value).unwrap(), expected);
@@ -38,25 +36,11 @@ mod tests {
             PathBuf::from(".npmrc") => Link { to: PathBuf::from("~/.npmrc") }
         };
 
-        let packages = vec![Packages {
-            list: Some(vec!["fzf".to_string()]),
-            manager: None,
-        }];
-
-        let recipe = Recipe {
-            link: Some(link),
-            packages: Some(packages),
-        };
+        let recipe = Recipe { link: Some(link) };
 
         let expected = indoc! {r#"
             link ".npmrc" {
               to = "~/.npmrc"
-            }
-
-            packages {
-              list = [
-                "fzf"
-              ]
             }
         "#};
 
@@ -69,7 +53,6 @@ mod tests {
             link: Some(indexmap! {
                 PathBuf::from(".npmrc") => Link { to: PathBuf::from("~/.npmrc") }
             }),
-            packages: None,
         };
 
         let manifest_str = indoc! {r#"

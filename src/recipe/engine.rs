@@ -23,7 +23,7 @@ impl Engine {
 
         for (name, recipe) in recipes {
             if let Some(link) = &recipe.link {
-                let link_outcomes = link_processor.process(approve, recipe_root, link);
+                let link_outcomes = link_processor.process(approve, name, recipe_root, link);
                 outcomes.add(name, link_outcomes);
             }
         }
