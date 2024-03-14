@@ -287,7 +287,7 @@ checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
 
 [[package]]
 name = "keron"
-version = "2024.3.15"
+version = "2024.3.16"
 dependencies = [
  "anyhow",
  "clap",
