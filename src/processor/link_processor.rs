@@ -9,6 +9,16 @@ use crate::{
 
 pub(crate) struct LinkProcessor;
 
+enum SymlinkResult {
+    Success,
+
+    #[allow(dead_code)]
+    RequiresElevation,
+
+    #[allow(dead_code)]
+    ElevatedButNotWanted,
+}
+
 impl LinkProcessor {
     pub(crate) fn new() -> LinkProcessor {
         LinkProcessor {}
@@ -24,7 +34,7 @@ impl LinkProcessor {
         let mut outcomes = vec![];
 
         for (source, link) in link {
-            outcomes.extend(self.link(approve, recipe_name, recipe_root, source, &link.to));
+            outcomes.extend(self.link(approve, recipe_name, recipe_root, source, link));
         }
 
         outcomes
@@ -36,7 +46,7 @@ impl LinkProcessor {
         recipe_name: &String,
         recipe_root: &Path,
         source: &PathBuf,
-        to: &Path,
+        link: &Link,
     ) -> Vec<Outcome> {
         let mut outcomes = vec![];
 
@@ -46,11 +56,11 @@ impl LinkProcessor {
             outcomes.push(dry_run_or_failure!(
                 approve,
                 format!("{recipe_name}/link/{}", source.display()),
-                format!("link {} to {}", source.display(), to.display())
+                format!("link {} to {}", source.display(), link.to.display())
             ));
         }
 
-        let to_path = PathBuf::from(shellexpand::tilde(&to.display().to_string()).to_string());
+        let to_path = PathBuf::from(shellexpand::tilde(&link.to.display().to_string()).to_string());
 
         if to_path.exists() {
             outcomes.push(dry_run_or_failure!(
@@ -60,20 +70,38 @@ impl LinkProcessor {
             ));
         }
 
+        let privileged = link.privileged.unwrap_or(false);
+
         if outcomes.is_empty() {
             if approve {
-                match self.symlink(&source_path, &to_path) {
-                    Ok(_) => {
-                        outcomes.push(dry_run_or_success!(
-                            approve,
-                            format!("{recipe_name}/link/{}", source.display()),
-                            format!(
-                                "successfully linked '{}' to '{}'",
-                                source.display(),
-                                to_path.display()
-                            )
-                        ));
-                    }
+                match self.symlink(&source_path, &to_path, privileged) {
+                    Ok(result) => match result {
+                        SymlinkResult::Success => {
+                            outcomes.push(dry_run_or_success!(
+                                approve,
+                                format!("{recipe_name}/link/{}", source.display()),
+                                format!(
+                                    "successfully linked '{}' to '{}'",
+                                    source.display(),
+                                    to_path.display()
+                                )
+                            ));
+                        }
+                        SymlinkResult::RequiresElevation => {
+                            outcomes.push(dry_run_or_failure!(
+                                approve,
+                                format!("{recipe_name}/link/{}", source.display()),
+                                format!("link requires elevation, rerun with sudo",)
+                            ));
+                        }
+                        SymlinkResult::ElevatedButNotWanted => {
+                            outcomes.push(dry_run_or_failure!(
+                                approve,
+                                format!("{recipe_name}/link/{}", source.display()),
+                                format!("running elevated, but link does not require elevation",)
+                            ));
+                        }
+                    },
                     Err(err) => {
                         outcomes.push(dry_run_or_failure!(
                             approve,
@@ -87,10 +115,17 @@ impl LinkProcessor {
                     }
                 }
             } else {
+                let privileged_text = if privileged {
+                    " - will require sudo / root to run"
+                } else {
+                    ""
+                };
+
                 println!(
-                    "dry-run: link '{}' to '{}'",
+                    "dry-run: link '{}' to '{}'{}",
                     source_path.display(),
-                    to_path.display()
+                    to_path.display(),
+                    privileged_text
                 );
             }
         }
@@ -99,13 +134,57 @@ impl LinkProcessor {
     }
 
     #[cfg(windows)]
-    fn symlink(&self, source_path: &PathBuf, to: &PathBuf) -> anyhow::Result<()> {
-        std::os::windows::fs::symlink_file(source_path, to).map_err(anyhow::Error::from)
+    fn symlink(
+        &self,
+        source_path: &PathBuf,
+        to: &PathBuf,
+        _privileged: bool,
+    ) -> anyhow::Result<SymlinkResult> {
+        std::os::windows::fs::symlink_file(source_path, to)
+            .map_err(anyhow::Error::from)
+            .map(|_| SymlinkResult::Success)
     }
 
     #[cfg(unix)]
-    fn symlink(&self, source_path: &PathBuf, to: &PathBuf) -> anyhow::Result<()> {
-        std::os::unix::fs::symlink(source_path, to).map_err(anyhow::Error::from)
+    fn symlink(
+        &self,
+        source_path: &PathBuf,
+        to: &PathBuf,
+        privileged: bool,
+    ) -> anyhow::Result<SymlinkResult> {
+        use std::env;
+
+        use elevate::RunningAs;
+
+        let running_as = elevate::check();
+
+        if (running_as == RunningAs::Root || running_as == RunningAs::Suid) && !privileged {
+            return Ok(SymlinkResult::ElevatedButNotWanted);
+        } else if running_as == RunningAs::User && privileged {
+            return Ok(SymlinkResult::RequiresElevation);
+        }
+
+        std::os::unix::fs::symlink(source_path, to)
+            .map_err(anyhow::Error::from)
+            .and_then(|_| {
+                if privileged {
+                    let real_user_uid = env::var("SUDO_UID")
+                        .map_err(anyhow::Error::from)
+                        .and_then(|var| var.parse::<u32>().map_err(anyhow::Error::from))
+                        .unwrap_or(0_u32);
+
+                    let real_user_gid = env::var("SUDO_GID")
+                        .map_err(anyhow::Error::from)
+                        .and_then(|var| var.parse::<u32>().map_err(anyhow::Error::from))
+                        .unwrap_or(0_u32);
+
+                    std::os::unix::fs::lchown(to, Some(real_user_uid), Some(real_user_gid))
+                        .map(|_| SymlinkResult::Success)
+                        .map_err(anyhow::Error::from)
+                } else {
+                    Ok(SymlinkResult::Success)
+                }
+            })
     }
 }
 
@@ -115,7 +194,7 @@ mod tests {
 
     use tempfile::NamedTempFile;
 
-    use crate::model::Outcome;
+    use crate::model::{Link, Outcome};
 
     use super::LinkProcessor;
     use pretty_assertions::assert_eq;
@@ -139,7 +218,10 @@ mod tests {
             &"fkbr".to_string(),
             &recipe_root.into_path(),
             &source,
-            &to,
+            &Link {
+                to: to.clone(),
+                privileged: None,
+            },
         );
 
         assert_eq!(to.exists(), true);

@@ -33,7 +33,7 @@ mod tests {
     #[test]
     fn test_serialize() {
         let link = indexmap! {
-            PathBuf::from(".npmrc") => Link { to: PathBuf::from("~/.npmrc") }
+            PathBuf::from(".npmrc") => Link { to: PathBuf::from("~/.npmrc"), privileged: Some(true) }
         };
 
         let recipe = Recipe { link: Some(link) };
@@ -41,6 +41,7 @@ mod tests {
         let expected = indoc! {r#"
             link ".npmrc" {
               to = "~/.npmrc"
+              privileged = true
             }
         "#};
 
@@ -51,7 +52,7 @@ mod tests {
     fn test_deserialize() {
         let recipe = Recipe {
             link: Some(indexmap! {
-                PathBuf::from(".npmrc") => Link { to: PathBuf::from("~/.npmrc") }
+                PathBuf::from(".npmrc") => Link { to: PathBuf::from("~/.npmrc"), privileged: None }
             }),
         };
 
