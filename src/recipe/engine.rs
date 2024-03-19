@@ -5,13 +5,16 @@ use crate::{
     processor::link_processor::LinkProcessor,
 };
 
+/// Applies all processors on a all [`Recipe`]s.
 pub(crate) struct Engine {}
 
 impl Engine {
+    /// Create a new [`Engine`].
     pub(crate) fn new() -> Engine {
         Engine {}
     }
 
+    /// Apply all processors on the collection of [`Recipe`]s and yield the [`Outcomes`].
     pub(crate) fn run(
         &self,
         approve: bool,

@@ -7,8 +7,13 @@ use crate::{
     model::{Link, Outcome},
 };
 
+/// Process [`Link`]s when applying a [`crate::model::Recipe`].
 pub(crate) struct LinkProcessor;
 
+/// Models the outcomes a symlink application can have:
+/// * success - everything went smoothly
+/// * requires elevation - running as a [`elevate::RunningAs::User`] and the [`Link`] is [`Link::privileged`]
+/// * elevated but not wanted - running as a [`elevate::RunningAs::Root`] or [`elevate::RunningAs::Suid`] and the [`Link`] is not [`Link::privileged`]
 enum SymlinkResult {
     Success,
 
@@ -20,10 +25,17 @@ enum SymlinkResult {
 }
 
 impl LinkProcessor {
+    /// Create new [`LinkProcessor`]
     pub(crate) fn new() -> LinkProcessor {
         LinkProcessor {}
     }
 
+    /// Process a collection of [`Link`]s
+    ///
+    /// When [`LinkProcessor::process`] is called with `approve` = true we try to apply all links,
+    /// otherwise we assume a "dry-run" and don't do anything
+    ///
+    /// A list of [`Outcome`]s is yielded after each run
     pub(crate) fn process(
         &self,
         approve: bool,
@@ -40,6 +52,9 @@ impl LinkProcessor {
         outcomes
     }
 
+    /// Link a source to a target
+    ///
+    /// If a target contains a "~" it is expanded to [`dirs::home_dir()`].
     fn link(
         &self,
         approve: bool,
@@ -133,6 +148,9 @@ impl LinkProcessor {
         outcomes
     }
 
+    /// Symlink a source to a target under on Windows.
+    ///
+    /// Supports files and folder sources.
     #[cfg(windows)]
     fn symlink(
         &self,
@@ -140,11 +158,28 @@ impl LinkProcessor {
         to: &PathBuf,
         _privileged: bool,
     ) -> anyhow::Result<SymlinkResult> {
-        std::os::windows::fs::symlink_file(source_path, to)
-            .map_err(anyhow::Error::from)
-            .map(|_| SymlinkResult::Success)
+        if source_path.is_dir() {
+            std::os::windows::fs::symlink_dir(source_path, to)
+                .map_err(anyhow::Error::from)
+                .map(|_| SymlinkResult::Success)
+        } else {
+            std::os::windows::fs::symlink_file(source_path, to)
+                .map_err(anyhow::Error::from)
+                .map(|_| SymlinkResult::Success)
+        }
     }
 
+    /// Symlink a source to a target on Linux, macOS and other Unix-like systems.
+    ///
+    /// Supports files and folder sources.
+    ///
+    /// When applying a symlink for a "privileged" [`Link`],
+    /// we try to ensure that the link belongs to the user who elevated into "sudo".
+    ///
+    /// We use the env vars `SUDO_UID` and `SUDO_GID` as they're preserved when running in "sudo",
+    /// the fallback is `uid = 0` and `gid = 0` which is "root".
+    ///
+    /// TODO: discuss if "root" is an adequate fallback
     #[cfg(unix)]
     fn symlink(
         &self,

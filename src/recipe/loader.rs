@@ -4,10 +4,14 @@ use walkdir::WalkDir;
 
 use crate::model::Recipe;
 
+/// walks through a given folder and yields all [`Recipe`]s.
+///
+/// Max traversal depth is `3`.
 pub(crate) fn load_all_recipes(root: &PathBuf) -> anyhow::Result<BTreeMap<String, Recipe>> {
     let mut recipes = BTreeMap::<String, Recipe>::new();
 
     for entry in WalkDir::new(root)
+        .max_depth(3)
         .into_iter()
         .filter_map(|entry| entry.ok())
     {
