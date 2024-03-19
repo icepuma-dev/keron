@@ -1,5 +1,6 @@
 link ".npmrc" {
-  to = "~/.npmrc"
+  to = "~/.npmrc2"
+  privileged = true
 }
 
 brew {
