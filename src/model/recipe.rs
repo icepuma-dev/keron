@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use super::Link;
 
+/// A recipe holds all elements which should be applied when running keron.
+///
+/// Supported elements:
+/// * [`Link`] - "symlink" a source to a target
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub(crate) struct Recipe {
     #[serde(
