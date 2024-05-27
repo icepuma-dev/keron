@@ -15,7 +15,7 @@ clap = { version = "4", features = ["derive"] }
 colored = "2"
 dirs = "5"
 elevate = "0.6"
-hcl-rs = "0.17"
+hcl-rs = "0.18"
 indexmap = { version = "2", features = ["std"] }
 os_info = "3"
 serde = { version = "1", features = ["derive"] }
