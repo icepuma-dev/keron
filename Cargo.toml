@@ -5,14 +5,26 @@ edition = "2021"
 authors = ["Stefan Ruzitschka <stefan@icepuma.dev>"]
 description = "dotfile manager (symlinks, packages)"
 keywords = ["dotfile", "dotfiles", "dotfile-manager"]
-repository = "https://github.com/icepuma/keron"
+repository = "https://github.com/icepuma-dev/keron"
 readme = "README.md"
 license-file = "LICENSE"
 
 [dependencies]
 anyhow = "1.0.86"
+clap = { version = "4.5.19", features = [
+    "derive",
+    "deprecated",
+    "suggestions",
+    "color",
+    "env",
+    "unicode",
+    "wrap_help",
+] }
+glob = "0.3.1"
+rhai = "1.19.0"
 
 [dev-dependencies]
+tempfile = "3.13.0"
 
 [profile.release]
 lto = true
