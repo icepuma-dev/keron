@@ -1,0 +1,6 @@
+// Some helpful comment
+let prints = ["lol", "simple", "rofl"];
+
+for (item, count) in prints {
+    print(`${item}`);
+}
